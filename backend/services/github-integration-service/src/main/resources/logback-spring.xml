@@ -1,0 +1,13 @@
+<configuration>
+    <springProperty scope="context" name="appName" source="spring.application.name" defaultValue="service"/>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%thread] %logger{36} app=%property{appName} trace=%X{traceId:-} span=%X{spanId:-} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>

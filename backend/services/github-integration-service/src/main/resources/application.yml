@@ -1,0 +1,33 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: github-integration-service
+  kafka:
+    bootstrap-servers: "${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}"
+
+github:
+  api:
+    base-url: https://api.github.com
+  token: ${GITHUB_TOKEN:}
+  webhook-secret: ${GITHUB_WEBHOOK_SECRET:}
+
+clients:
+  internal:
+    api-key: ${INTERNAL_API_KEY:internal-dev-key}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  level:
+    root: INFO
+    com.aicodereviewer.github: INFO

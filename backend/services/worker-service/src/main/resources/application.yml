@@ -1,0 +1,29 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: worker-service
+  kafka:
+    bootstrap-servers: "${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}"
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+clients:
+  llm:
+    base-url: "${LLM_SERVICE_URL:http://localhost:8084}"
+  internal:
+    api-key: ${INTERNAL_API_KEY:internal-dev-key}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+
+logging:
+  level:
+    root: INFO
+    com.aicodereviewer.worker: INFO

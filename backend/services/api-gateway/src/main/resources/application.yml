@@ -1,0 +1,57 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins:
+              - http://localhost:5173
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders:
+              - "*"
+            allowCredentials: true
+      routes:
+        - id: auth-service
+          uri: "${AUTH_SERVICE_URL:http://localhost:8081}"
+          predicates:
+            - Path=/api/v1/auth/**
+        - id: review-service
+          uri: "${REVIEW_SERVICE_URL:http://localhost:8082}"
+          predicates:
+            - Path=/api/v1/reviews/**,/ws/**
+        - id: github-service
+          uri: "${GITHUB_SERVICE_URL:http://localhost:8085}"
+          predicates:
+            - Path=/api/v1/github/**,/webhooks/github/**
+        - id: llm-service
+          uri: "${LLM_SERVICE_URL:http://localhost:8084}"
+          predicates:
+            - Path=/api/v1/llm/**
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:change-me-super-secret-key-change-me-super-secret-key}

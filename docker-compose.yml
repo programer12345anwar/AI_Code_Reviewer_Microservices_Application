@@ -1,0 +1,259 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: aicr-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: aicodereviewer
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d aicodereviewer" ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    ports:
+      - "55432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - aicr-net
+
+  redis:
+    image: redis:7.2
+    container_name: aicr-redis
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    ports:
+      - "6379:6379"
+    networks:
+      - aicr-net
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    container_name: aicr-zookeeper
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - aicr-net
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: aicr-kafka
+    restart: unless-stopped
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    networks:
+      - aicr-net
+
+  auth-service:
+    build:
+      context: ./backend
+      dockerfile: services/auth-service/Dockerfile
+    container_name: aicr-auth-service
+    restart: unless-stopped
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: aicodereviewer
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      SPRING_FLYWAY_TABLE: flyway_schema_history_auth
+      SPRING_FLYWAY_BASELINE_ON_MIGRATE: "true"
+      SPRING_FLYWAY_BASELINE_VERSION: 0
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8081:8081"
+    networks:
+      - aicr-net
+
+  llm-service:
+    build:
+      context: ./backend
+      dockerfile: services/llm-service/Dockerfile
+    container_name: aicr-llm-service
+    restart: unless-stopped
+    environment:
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-mini}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-1.5-pro}
+    ports:
+      - "8084:8084"
+    networks:
+      - aicr-net
+
+  github-integration-service:
+    build:
+      context: ./backend
+      dockerfile: services/github-integration-service/Dockerfile
+    container_name: aicr-github-service
+    restart: unless-stopped
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      GITHUB_TOKEN: ${GITHUB_TOKEN}
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+    depends_on:
+      kafka:
+        condition: service_started
+    ports:
+      - "8085:8085"
+    networks:
+      - aicr-net
+
+  worker-service:
+    build:
+      context: ./backend
+      dockerfile: services/worker-service/Dockerfile
+    container_name: aicr-worker-service
+    restart: unless-stopped
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      LLM_SERVICE_URL: http://llm-service:8084
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+    depends_on:
+      kafka:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      llm-service:
+        condition: service_started
+    ports:
+      - "8083:8083"
+    networks:
+      - aicr-net
+
+  review-service:
+    build:
+      context: ./backend
+      dockerfile: services/review-service/Dockerfile
+    container_name: aicr-review-service
+    restart: unless-stopped
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: aicodereviewer
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      GITHUB_SERVICE_URL: http://github-integration-service:8085
+      LLM_SERVICE_URL: http://llm-service:8084
+      SPRING_FLYWAY_TABLE: flyway_schema_history_review
+      SPRING_FLYWAY_BASELINE_ON_MIGRATE: "true"
+      SPRING_FLYWAY_BASELINE_VERSION: 0
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      github-integration-service:
+        condition: service_started
+    ports:
+      - "8082:8082"
+    networks:
+      - aicr-net
+
+  api-gateway:
+    build:
+      context: ./backend
+      dockerfile: services/api-gateway/Dockerfile
+    container_name: aicr-api-gateway
+    restart: unless-stopped
+    environment:
+      AUTH_SERVICE_URL: http://auth-service:8081
+      REVIEW_SERVICE_URL: http://review-service:8082
+      GITHUB_SERVICE_URL: http://github-integration-service:8085
+      LLM_SERVICE_URL: http://llm-service:8084
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      auth-service:
+        condition: service_started
+      review-service:
+        condition: service_started
+      github-integration-service:
+        condition: service_started
+      llm-service:
+        condition: service_started
+    ports:
+      - "8080:8080"
+    networks:
+      - aicr-net
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: aicr-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./backend/infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    networks:
+      - aicr-net
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: aicr-grafana
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    volumes:
+      - ./backend/infra/grafana/provisioning:/etc/grafana/provisioning
+      - ./backend/infra/grafana/dashboards:/var/lib/grafana/dashboards
+    ports:
+      - "3001:3000"
+    networks:
+      - aicr-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: http://localhost:8080
+    container_name: aicr-frontend
+    restart: unless-stopped
+    depends_on:
+      api-gateway:
+        condition: service_started
+    ports:
+      - "5173:80"
+    networks:
+      - aicr-net
+
+networks:
+  aicr-net:
+    driver: bridge
+
+volumes:
+  postgres_data:

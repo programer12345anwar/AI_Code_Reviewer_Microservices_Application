@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-ink-50 text-ink-900 dark:bg-ink-900 dark:text-ink-50 bg-halo min-h-screen;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #4556d1 transparent;
+}
+
+.card-glass {
+  @apply bg-white/85 dark:bg-ink-800/70 backdrop-blur border border-white/60 dark:border-ink-700 rounded-2xl shadow-panel;
+}
