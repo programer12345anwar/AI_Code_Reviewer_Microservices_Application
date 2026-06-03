@@ -19,39 +19,8 @@ Production-ready, microservices-based AI code review platform that integrates wi
 ---
 
 ## Architecture
+<img width="615" height="663" alt="image" src="https://github.com/user-attachments/assets/1f011045-3fc6-4d36-a808-ba2e8fa7c631" />
 
-```text
-GitHub Webhook (PR opened/sync/reopened)
-        |
-        v
-GitHub Integration Service
-  - Verify webhook signature
-  - Fetch PR file patches
-  - Normalize changed lines only
-  - Publish ReviewRequestedEvent
-        |
-        v
-Kafka topic: review.requested
-        |
-        v
-Worker Service
-  - Redis de-duplication
-  - Call LLM Service
-  - Calculate quality score
-  - Publish ReviewCompletedEvent
-        |
-        v
-Kafka topic: review.completed
-        |
-        v
-Review Service
-  - Persist to PostgreSQL
-  - Redis duplicate guard
-  - WebSocket broadcast
-  - Trigger PR auto-comment via GitHub Integration Service
-
-Frontend <-> API Gateway <-> Auth/Review/GitHub/LLM services
-```
 
 ---
 
