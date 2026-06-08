@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import org.springframework.web.reactive.function.client.WebClient;
 
 @Service
@@ -24,12 +25,17 @@ public class GitHubApiService {
     private String gitHubToken;
 
     public List<String> fetchPullRequestPatches(String owner, String repo, int prNumber) {
-        JsonNode response = webClientBuilder.baseUrl(gitHubApiBaseUrl)
+        WebClient.RequestHeadersSpec<?> request = webClientBuilder.baseUrl(gitHubApiBaseUrl)
             .build()
             .get()
             .uri("/repos/{owner}/{repo}/pulls/{number}/files", owner, repo, prNumber)
-            .header(HttpHeaders.AUTHORIZATION, "Bearer " + gitHubToken)
-            .header(HttpHeaders.ACCEPT, "application/vnd.github+json")
+            .header(HttpHeaders.ACCEPT, "application/vnd.github+json");
+
+        if (StringUtils.hasText(gitHubToken)) {
+            request = request.header(HttpHeaders.AUTHORIZATION, "Bearer " + gitHubToken);
+        }
+
+        JsonNode response = request
             .retrieve()
             .bodyToMono(JsonNode.class)
             .block();
@@ -46,22 +52,29 @@ public class GitHubApiService {
         return patches;
     }
 
-    public void postPrComment(GitHubCommentRequest request) {
-        String[] parts = request.repository().split("/");
+    public boolean postPrComment(GitHubCommentRequest commentRequest) {
+        if (!StringUtils.hasText(gitHubToken)) {
+            return false;
+        }
+
+        String[] parts = commentRequest.repository().split("/");
         if (parts.length != 2) {
             throw new IllegalArgumentException("Repository must be in owner/repo format");
         }
 
-        webClientBuilder.baseUrl(gitHubApiBaseUrl)
+        WebClient.RequestBodySpec apiRequest = webClientBuilder.baseUrl(gitHubApiBaseUrl)
             .build()
             .post()
-            .uri("/repos/{owner}/{repo}/issues/{number}/comments", parts[0], parts[1], request.prNumber())
-            .header(HttpHeaders.AUTHORIZATION, "Bearer " + gitHubToken)
+            .uri("/repos/{owner}/{repo}/issues/{number}/comments", parts[0], parts[1], commentRequest.prNumber())
             .header(HttpHeaders.ACCEPT, "application/vnd.github+json")
             .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-            .bodyValue(java.util.Map.of("body", request.body()))
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + gitHubToken);
+
+        apiRequest
+            .bodyValue(java.util.Map.of("body", commentRequest.body()))
             .retrieve()
             .toBodilessEntity()
             .block();
+        return true;
     }
 }

@@ -33,7 +33,7 @@ public class GitHubCommentController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("status", "unauthorized"));
         }
 
-        gitHubApiService.postPrComment(request);
-        return ResponseEntity.ok(Map.of("status", "posted"));
+        boolean posted = gitHubApiService.postPrComment(request);
+        return ResponseEntity.ok(Map.of("status", posted ? "posted" : "skipped-missing-github-token"));
     }
 }

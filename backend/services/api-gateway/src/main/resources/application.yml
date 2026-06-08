@@ -32,7 +32,7 @@ spring:
         - id: github-service
           uri: "${GITHUB_SERVICE_URL:http://localhost:8085}"
           predicates:
-            - Path=/api/v1/github/**,/webhooks/github/**
+            - Path=/api/v1/github/**,/webhooks/github,/webhooks/github/**
         - id: llm-service
           uri: "${LLM_SERVICE_URL:http://localhost:8084}"
           predicates:

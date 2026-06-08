@@ -32,6 +32,8 @@ public class JwtAuthGatewayFilter implements WebFilter, Ordered {
         String path = request.getPath().value();
 
         if (path.startsWith("/api/v1/auth/")
+            || path.equals("/webhooks/github")
+            || path.startsWith("/webhooks/github/")
             || path.startsWith("/ws/")
             || path.startsWith("/actuator")
             || path.startsWith("/swagger-ui")

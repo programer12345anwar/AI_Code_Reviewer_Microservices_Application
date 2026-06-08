@@ -31,11 +31,19 @@ public class ReviewCompletedConsumer {
         }
 
         messagingTemplate.convertAndSend("/topic/reviews", record.getId());
-        gitHubCommentService.publishComment(
-            event.getMetadata().getRepository(),
-            event.getMetadata().getPrNumber(),
-            formatComment(event)
-        );
+        try {
+            gitHubCommentService.publishComment(
+                event.getMetadata().getRepository(),
+                event.getMetadata().getPrNumber(),
+                formatComment(event)
+            );
+        } catch (Exception ex) {
+            log.warn("Review persisted but GitHub comment could not be published for repository={} prNumber={}",
+                event.getMetadata().getRepository(),
+                event.getMetadata().getPrNumber(),
+                ex
+            );
+        }
     }
 
     private String formatComment(ReviewCompletedEvent event) {

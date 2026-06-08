@@ -20,6 +20,8 @@ public class SecurityConfig {
             .authorizeExchange(auth -> auth
                 .pathMatchers(
                     "/api/v1/auth/**",
+                    "/webhooks/github",
+                    "/webhooks/github/**",
                     "/ws/**",
                     "/actuator/**",
                     "/swagger-ui/**",

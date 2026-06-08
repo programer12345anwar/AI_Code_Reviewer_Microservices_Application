@@ -48,7 +48,7 @@ export function ReviewsPage() {
   return (
     <AppShell>
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search repository..." className="max-w-sm" />
+        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Filter existing reviews..." className="max-w-sm" />
         <select
           className="rounded-xl border border-ink-200 bg-white px-3 py-2 text-sm dark:border-ink-700 dark:bg-ink-800"
           value={severity}
@@ -59,7 +59,7 @@ export function ReviewsPage() {
           <option value="MEDIUM">Medium Risk</option>
           <option value="LOW">Low Risk</option>
         </select>
-        <Button onClick={() => load().catch(() => null)}>Search</Button>
+        <Button onClick={() => load().catch(() => null)}>Filter</Button>
       </div>
 
       {loading ? (
@@ -67,11 +67,17 @@ export function ReviewsPage() {
           <Spinner />
         </div>
       ) : (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((review) => (
-            <ReviewCard key={review.id} review={review} />
-          ))}
-        </div>
+        filtered.length > 0 ? (
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {filtered.map((review) => (
+              <ReviewCard key={review.id} review={review} />
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-lg border border-ink-200 bg-white/70 px-4 py-6 text-sm text-ink-500 dark:border-ink-700 dark:bg-ink-900/40 dark:text-ink-400">
+            {search.trim() ? "No matching reviews found." : "No reviews found yet."}
+          </div>
+        )
       )}
     </AppShell>
   );
